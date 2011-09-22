@@ -1,4 +1,4 @@
--mmtss is a loop station built for live performances.
+- mmtss is a loop station built for live performances.
 
 It wraps Ableton around a Web wrapper using a Webkit view, backed by nodejs and
 socket.io. Communication is done via LiveOSC
