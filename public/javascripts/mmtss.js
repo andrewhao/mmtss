@@ -14,5 +14,5 @@ $(window).ready(function() {
 
 socket.on('message', function (data) {
   console.log(data);
-  $('#logarea').append('<div>'+data+'</div>')
+  $('#logarea').prepend('<div>'+data+'</div>')
 });

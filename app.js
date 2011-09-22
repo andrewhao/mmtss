@@ -60,6 +60,8 @@ sendMessage = function(msg) {
         param = parseFloat(args);
     } else if (typ == 's') {
         param = msg.args
+    } else {
+        param = undefined;
     }
 
     var oscMsg = new osc.Message(address, param)
