@@ -1,0 +1,51 @@
+{
+   "name": "mmtss",
+   "version": "0.1.0",
+   "description": "Loop sequencer controller over Ableton Live. Meant for live art installation.",
+   "keywords": [
+       "art",
+       "nodejs" ,
+       "raphael",
+       "svg",
+       "loop",
+       "ableton live"
+   ],
+   "maintainers": [
+       {
+           "name": "Andrew Hao",
+           "email": "andrewhao@gmail.com",
+           "web": "http://www.g9labs.com" 
+       }
+       
+   ],
+   "contributors": [
+       {
+           "name": "David Luoh",
+           "email": "davidluoh@gmail.com",
+           "web": "http://www.inkproj.com" 
+       }
+   ],
+   "licenses": [
+       {
+           "type": "GPLv2",
+           "url": "http://www.example.org/licenses/gpl.html" 
+       } 
+   ],
+   "repositories": [
+       {
+           "type": "git",
+           "url": "http://github.com:andrewhao/mmtss.git" 
+       } 
+   ],
+   "dependencies": {
+       "socket.io": "0.8.4",
+       "express": "2.4.6",
+       "osc4node": "0.1.0",
+       "jade": "0.15.4"
+       } 
+   },
+   "engines": ["node >=0.4.11"],
+   "directories": {
+       "lib": "lib"
+   } 
+}
