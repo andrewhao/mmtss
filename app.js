@@ -4,7 +4,6 @@ var osc = require('osc4node');
 var express = require('express');
 var sys = require('sys');
 
-
 SERVER_PORT = 9001
 CLIENT_PORT = 9000
 
@@ -14,7 +13,6 @@ var oscServer = new osc.Server(SERVER_PORT, 'localhost')
 
 console.log('OSC Server set up, listening on port '  + SERVER_PORT);
 console.log('OSC Client set up, listening on port '  + CLIENT_PORT);
-
 
 var message = new osc.Message('/live/time');
 sys.puts("sending message" + sys.inspect(message));
@@ -71,7 +69,7 @@ sendMessage = function(msg) {
 
 io.sockets.on('connection', function(socket) {
   sys.puts('Web browser connected');
-  socket.send('hey, you connected to me the server.');
+  socket.send(JSON.stringify({sender: "NODE", body: 'hey, you connected to me the server.'}));
   socket.on('message', function(msg) {
     sys.puts("receiving from browser: " + msg);
     msg = JSON.parse(msg);
@@ -81,8 +79,7 @@ io.sockets.on('connection', function(socket) {
 
   oscServer.on('oscmessage', function(msg, rinfo) {
     sys.puts(sys.inspect(msg));
-    //debugger;
-    socket.send('OSCMSG' + sys.inspect(msg));
+    socket.send(JSON.stringify({sender: 'OSCMSG', body: msg}));
   });
 
 });
