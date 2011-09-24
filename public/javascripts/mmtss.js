@@ -241,8 +241,10 @@ TrackView.prototype.moveMarker = function(beat) {
   // Draw a fill on the previous squares.
   for (var i = 0; i <= beat; i++) {
     this.squares[i].animate({
-      fill: 'yellow'
-    }, 200);
+      fill: '#E8D750'
+    }, 50, function() {
+      this.animate({fill: '#BFB24D'}, 150)
+    });
   }
 }
 

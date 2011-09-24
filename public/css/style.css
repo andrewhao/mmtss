@@ -10,4 +10,5 @@ body {
 h1 {
   font-size: 20em;
   font-weight: bold;
+  margin: 0;
 }
