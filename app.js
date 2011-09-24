@@ -42,44 +42,42 @@ console.log('Web server listening on %s:%d', 'localhost', 3000);
 /**
  * We define our own message syntax:
  * {address {str}
- *  type {str: i|f|s|a
- *  args: [] tuples: [<val, type>]
+ *  args: [] tuples: [<arg1>, <arg2>]
  */
-sendMessage = function(msg) {
-    var args = msg.args;
-    var address = msg.address;
-    var typ = msg.type;
-
-    var param = null;
-
-    if (typ == 'i') {
-        param = parseInt(args);
-    } else if (typ == 'f') {
-        param = parseFloat(args);
-    } else if (typ == 's') {
-        param = msg.args
-    } else {
-        param = undefined;
-    }
-
-    var oscMsg = new osc.Message(address, param)
-    oscServer.send(oscMsg, oscClient);
+sendOSCMessage = function(msg) {
+  console.log('Sending a message to OSC: ' + JSON.stringify(msg))
+  var oscMsg;
+  // Handle the no-argument case.
+  if (msg.args === undefined) {
+    oscMsg = new osc.Message(msg.address)
+  } else {
+    oscMsg = new osc.Message(msg.address, msg.args)
+  }
+  oscServer.send(oscMsg, oscClient);
 };
-
 
 io.sockets.on('connection', function(socket) {
   sys.puts('Web browser connected');
-  socket.send(JSON.stringify({sender: "NODE", body: 'hey, you connected to me the server.'}));
+  console.log('CONNECTED to NODE');
+
+  /**
+   * Executed whenever I receive a msg from the Web client.
+   */
   socket.on('message', function(msg) {
-    sys.puts("receiving from browser: " + msg);
-    msg = JSON.parse(msg);
-    console.log('msg rcv from client was: ' + sys.inspect(msg));
-    sendMessage(msg);
+    console.log('message is: ' + msg)
+  });
+  
+  socket.on('osc_command', function(msg) {
+    sendOSCMessage(msg);    
   });
 
+  /**
+   * Received from OSC.
+   */
   oscServer.on('oscmessage', function(msg, rinfo) {
-    sys.puts(sys.inspect(msg));
-    socket.send(JSON.stringify({sender: 'OSCMSG', body: msg}));
+    sys.puts("Received from OSC: " + sys.inspect(msg));
+    socket.emit('osc_response', msg);
+    //socket.send(JSON.stringify({sender: 'OSCMSG', body: msg}));
   });
 
 });
