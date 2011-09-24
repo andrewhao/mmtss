@@ -1,5 +1,3 @@
-WINDOW_WIDTH = $(window).width();
-WINDOW_HEIGHT = $(window).height() - 10;
 BEATS_PER_LOOP = 32;
 
 // Map an OSC event to an app-specific event.
@@ -61,18 +59,32 @@ function stopClipsInGroup() {
  */
 function Command(sock) {
   this.socket = sock;
+  this.callbacks = {};
 }
 
 Command.prototype.init = function() {
   this.socket.on('message', function (data) {
     console.log('Server message: '+data);
   });
+  var cmdObj = this;
   this.socket.on('osc_response', function(data) {
     var address = data._address;
     var args = data._args;
-    //console.log(data);
+    
+    // Fire any associated callbacks.
+    if (cmdObj.callbacks[address] !== undefined) {
+      var cbList = cmdObj.callbacks[address];
+      _.each(cbList, function(cb) {
+        cb.call(this, data);
+      });
+      // Clear the callback entry.
+      cmdObj.callbacks[address] = [];
+    }
+
     // Emit events based on OSC messages.
-    $(document).trigger(EVENT_MAP[address], [args]);
+    if (EVENT_MAP[address] !== undefined) {
+      $(document).trigger(EVENT_MAP[address], [args]);
+    }
   });
   return this;
 }
@@ -98,8 +110,13 @@ Command.prototype.addListener = function(ev, cb) {
  *   sendMessage('/live/play')
  *   sendMessage('/live/tempo', 50)
  *   sendMessage('/live/clip/info', [0, 1])
+ *
+ * @param {String} path The command path
+ * @param {Array} argArr An array of arguments to pass to the command
+ * @param {Function} cb Callback method to execute when the
+ *   server response returns.
  */
-Command.prototype.send = function(path, argArr) {
+Command.prototype.send = function(path, argArr, cb) {
   if (!argArr instanceof Array) {
     argArr = [argArr];
   }
@@ -107,6 +124,16 @@ Command.prototype.send = function(path, argArr) {
     address: path,
     args: argArr
   }
+  
+  if (cb !== undefined) {
+    // Add callback to method stack.
+    if (this.callbacks[path] === undefined) {
+      this.callbacks[path] = [cb];
+    } else {
+      this.callbacks[path].push(cb);
+    }
+  }
+  
   this.socket.emit('osc_command', msgObj);
 }
 
@@ -141,7 +168,7 @@ Command.prototype.newClip = function(trk) {
 }
 
 /**
- * @param trk TrkId
+ * @param trk track id
  * @param mute 1 or 0
  */
 Command.prototype.muteTrack = function(trk, mute) {
@@ -151,21 +178,26 @@ Command.prototype.muteTrack = function(trk, mute) {
 /**
  * Manages playhead objects
  */
-function PlayerView() {
-  this.r = new Raphael('viewport', WINDOW_WIDTH, WINDOW_HEIGHT);
-  this.trackView = new TrackView(this.r);
+function PlayerView(viewportEl) {
+  this.viewport = viewportEl;
+  this.r = new Raphael('viewport', this.viewport.width(), this.viewport.height());
+  this.trackView = new TrackView(this.r, viewportEl);
 }
 PlayerView.prototype.render = function() {
   this.trackView.render();
+  return this;
 }
 
 /**
  * Manages track objects: timeline, marker.
  */
-function TrackView(r) {
+function TrackView(r, viewportEl) {
   this.r = r;
+  this.viewport = viewportEl;
   this.timeline = null;
   this.timeMarker = null;
+
+  this.squares = this.r.set();
 
   return this;
 }
@@ -174,12 +206,20 @@ function TrackView(r) {
  * Draws our track objects
  */
 TrackView.prototype.render = function() {
-  this.timeline = this.r.rect(0, 0, WINDOW_WIDTH*2/3, WINDOW_HEIGHT/2);
-  this.timeline.attr({fill: 'blue'});
-  var tbox = this.timeline.getBBox();
-  // Draw the timeline marker line
-  var timeMarkerPath = "M"+tbox.x+","+tbox.y+"L"+tbox.x+","+(tbox.y+tbox.height);
-  this.timeMarker = this.r.path(timeMarkerPath).attr({stroke: 'red'});
+  // Draw 32 squares in an 8x4 grid.
+  RECT_SPACING = 20;
+  RECT_LENGTH = this.viewport.width() / 10;
+  NUM_COLS = 8;
+  
+  for (var i = 0; i < BEATS_PER_LOOP / NUM_COLS; i++) {
+    var y = i * (RECT_LENGTH + RECT_SPACING);
+    for (var j = 0; j < NUM_COLS; j++) {
+      var x = j * (RECT_LENGTH + RECT_SPACING);
+      var sq = this.r.rect(x, y, RECT_LENGTH, RECT_LENGTH);
+      sq.attr({ fill: 'black' })
+      this.squares.push(sq);      
+    }
+  }
 
   return this;
 }
@@ -188,18 +228,26 @@ TrackView.prototype.render = function() {
  * Push the marker according to the beat.
  * The timeline marker should increment to beat / BEATS_PER_LOOP
  * percent of the timeline width.
+ *
+ * Rendered as a grid of boxes that change color according to their.
  */
 TrackView.prototype.moveMarker = function(beat) {
-  var tlBbox = this.timeline.getBBox();
-  var markBbox = this.timeMarker.getBBox();
-  var markX = markBbox.x;
-  var newX = beat / BEATS_PER_LOOP * tlBbox.width;
-  this.timeMarker.translate(newX - markX);
+  // When resetting the marker, clear the other squares.
+  if (beat == 0) {
+    _.each(this.squares, function(s) {
+      s.attr({fill: 'black'})
+    })
+  }
+  // Draw a fill on the previous squares.
+  for (var i = 0; i <= beat; i++) {
+    this.squares[i].attr({
+      fill: 'yellow'
+    });
+  }
 }
 
 $(window).ready(function() {
-  pv = new PlayerView();
-  pv.render();
+  pv = new PlayerView($('#viewport')).render();
 
   $('#play').click(function(e) {
     e.preventDefault();
