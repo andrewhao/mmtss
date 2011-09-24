@@ -80,18 +80,32 @@ function deleteClipsInGroup() {
  */
 function Command(sock) {
   this.socket = sock;
+  this.callbacks = {};
 }
 
 Command.prototype.init = function() {
   this.socket.on('message', function (data) {
     console.log('Server message: '+data);
   });
+  var cmdObj = this;
   this.socket.on('osc_response', function(data) {
     var address = data._address;
     var args = data._args;
-    //console.log(data);
+    
+    // Fire any associated callbacks.
+    if (cmdObj.callbacks[address] !== undefined) {
+      var cbList = cmdObj.callbacks[address];
+      _.each(cbList, function(cb) {
+        cb.call(this, data);
+      });
+      // Clear the callback entry.
+      cmdObj.callbacks[address] = [];
+    }
+
     // Emit events based on OSC messages.
-    $(document).trigger(EVENT_MAP[address], args);
+    if (EVENT_MAP[address] !== undefined) {
+      $(document).trigger(EVENT_MAP[address], args);
+    }
   });
   return this;
 }
@@ -117,8 +131,13 @@ Command.prototype.addListener = function(ev, cb) {
  *   sendMessage('/live/play')
  *   sendMessage('/live/tempo', 50)
  *   sendMessage('/live/clip/info', [0, 1])
+ *
+ * @param {String} path The command path
+ * @param {Array} argArr An array of arguments to pass to the command
+ * @param {Function} cb Callback method to execute when the
+ *   server response returns.
  */
-Command.prototype.send = function(path, argArr) {
+Command.prototype.send = function(path, argArr, cb) {
   if (!argArr instanceof Array) {
     argArr = [argArr];
   }
@@ -126,6 +145,16 @@ Command.prototype.send = function(path, argArr) {
     address: path,
     args: argArr
   }
+  
+  if (cb !== undefined) {
+    // Add callback to method stack.
+    if (this.callbacks[path] === undefined) {
+      this.callbacks[path] = [cb];
+    } else {
+      this.callbacks[path].push(cb);
+    }
+  }
+  
   this.socket.emit('osc_command', msgObj);
 }
 
