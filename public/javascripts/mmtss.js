@@ -15,14 +15,31 @@ INSTRUMENT_GROUPS = {
   'bass':[1],
   'pads':[2,3],
   'repeater':[4,5],
-  'chorus':[6,7,8],
+  'choir':[6,7,8],
   'twang':[9,10],
   'beat':[11]
 }
 
+INSTRUMENT_ADJECTIVES = {
+  'bass':['deep', 'smooth', 'soulful', 'righteous'],
+  'pads':['warm', 'humming', 'organ-like', 'mm-tastic'],
+  'repeater':['sprinkled', 'bouncy', 'icing-on-the-cake', 'thrilling'],
+  'choir':['voicey', 'ahh-inducing', 'breathy', 'enveloping'],
+  'twang':['harpsichord', 'plucky', 'tinny', 'piercing'],
+  'beat':['grooving', 'bumping', 'pumping', 'punching']
+}
+
 CLIP_COUNTER = {}
 
-NUM_INSTRUMENTS = 11;
+NUM_INSTRUMENTS = _.flatten(_.values(INSTRUMENT_GROUPS)).length;
+
+function getInstrumentInfo() {
+  instGroup = getGroup(State.currentTrack);
+  return {
+    name: instGroup,
+    description: INSTRUMENT_ADJECTIVES[instGroup][Math.floor(Math.random()*INSTRUMENT_ADJECTIVES[instGroup].length)]
+  }
+}
 
 function getGroup(trk) {
   for (var group in INSTRUMENT_GROUPS) {
@@ -241,7 +258,7 @@ TrackView.prototype.render = function() {
  */
 TrackView.prototype.moveMarker = function(beat) {
   // When resetting the marker, clear the other squares.
-  if (beat == 0) {
+  if (beat <= 0) {
     _.each(this.squares, function(s) {
       s.attr({
         fill: '90-#121212-#222',
@@ -271,10 +288,36 @@ $(window).ready(function() {
     $('#record, #play').attr('checked', false);
   });
 
+
   $('#record').click(function(e) {
     $('#play').attr('checked', true);
-    fsm.recordready();
   });
+
+  $('#reset').click(function(e) {
+    e.preventDefault();
+    cmd.send('/live/stop');
+    
+    // Stop all store tracks
+    insts = _.flatten(_.values(INSTRUMENT_GROUPS));
+    for (var i in insts) {
+      cmd.stopClip(insts[i]);
+      cmd.muteTrack(insts[i], 1);
+    }
+    
+    // Reset to practice with drums
+    State.prevTrack = 10;
+    State.currentTrack = 11;
+    cmd.muteTrack(State.currentTrack, 0);
+    
+    // Reset UI
+    pv.trackView.moveMarker(-1);
+    
+    // Start back up
+    cmd.send('/live/play');
+    
+    fsm.reset();
+  });
+
 });
 
 var socket = io.connect('http://localhost:3000');
@@ -305,7 +348,9 @@ var fsm = StateMachine.create({
     // When the track has begun.
     { name: 'loopbegin', from: 'wait', to: 'record' },
     // When the track has finished recording.
-    { name: 'loopend', from: 'record', to: 'practice' }
+    { name: 'loopend', from: 'record', to: 'practice' },
+    // To reset the machine.
+    { name: 'reset', from: ['practice', 'wait', 'record'], to: 'practice' }
   ],
   callbacks: {
     onenterwait: function(e, f, t) {
