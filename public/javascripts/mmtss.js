@@ -11,68 +11,47 @@ State = {
   currentTrack: 11
 }
 
-SHAKER = [0]
-INST_BASS = [1]
-INST_PADS = [2, 3]
-INST_ARPEGGIATOR = [4, 5]
-INST_CHORAL = [6, 7, 8]
-INST_STRING = [9, 10]
-INST_DRUMS = [11]
-
-INSTRUMENT_TRACKS = {
-  1: {
-    name: "bass"
-  },
-  2: {
-    name: "pad1"
-  },
-  3: {
-    name: "pad2"
-  },
-  4: {
-    name: "arp1"
-  },
-  5: {
-    name: "arp2"
-  },
-  6: {
-    name: "choral1"
-  },
-  7: {
-    name: "choral2"
-  },
-  8: {
-    name: "choral3"
-  },
-  9: {
-    name: "string1"
-  },
-  10: {
-    name: "string2"
-  },
-  11: {
-    name: "drums"
-  }
+INSTRUMENT_GROUPS = {
+  'bass':[1],
+  'pads':[2,3],
+  'repeater':[4,5],
+  'chorus':[6,7,8],
+  'twang':[9,10],
+  'beat':[11]
 }
 
-NUM_INSTRUMENTS = _.keys(INSTRUMENT_TRACKS).length;
+CLIP_COUNTER = {}
+
+NUM_INSTRUMENTS = 11;
+
+function getGroup(trk) {
+  for (var group in INSTRUMENT_GROUPS) {
+    if (_.include(INSTRUMENT_GROUPS[group], trk)) {
+      return group;
+    }
+  }
+}
 
 function Instrument(trkNum) {
   this.trackNum = trkNum;
 }
 
-/** STUB */
-function getNextInstrument() {
-  return State.currentTrack - 1;
+function nextInstrument() {
+   State.prevTrack = State.currentTrack;
+   eligibleGroups = _.without(_.keys(INSTRUMENT_GROUPS), getGroup(State.prevTrack));
+   currentGroup = eligibleGroups[Math.floor(Math.random()*5)];
+   State.currentTrack = INSTRUMENT_GROUPS[currentGroup][Math.floor(Math.random()*INSTRUMENT_GROUPS[currentGroup].length)];
 }
 
 function getInputTrack(trk) {
   return trk + NUM_INSTRUMENTS;
 }
 
-/** STUB */
-function deleteClipsInGroup() {
-  return null;
+function stopClipsInGroup() {
+  insts = INSTRUMENT_GROUPS[getGroup(State.currentTrack)];
+  for (var i in insts) {
+    cmd.stopClip(insts[i]);
+  }
 }
 
 /**
@@ -104,7 +83,7 @@ Command.prototype.init = function() {
 
     // Emit events based on OSC messages.
     if (EVENT_MAP[address] !== undefined) {
-      $(document).trigger(EVENT_MAP[address], args);
+      $(document).trigger(EVENT_MAP[address], [args]);
     }
   });
   return this;
@@ -171,8 +150,21 @@ Command.prototype.sendBatch = function(batch) {
   }
 }
 
-Command.prototype.doClip = function(trk) {
-  this.send('/live/play/clipslot', [trk, 1])
+Command.prototype.stopClip = function(trk) {
+  this.send('/live/stop/track', [trk]);
+}
+
+Command.prototype.storeClip = function(trk) {
+  this.send('/live/play/clipslot', [trk, CLIP_COUNTER[trk]]);
+}
+
+Command.prototype.newClip = function(trk) {
+  if (CLIP_COUNTER[trk] === undefined) {
+      CLIP_COUNTER[trk] = 0;
+  } else {
+    CLIP_COUNTER[trk] = CLIP_COUNTER[trk]+1;
+  }
+  this.send('/live/play/clipslot', [trk, CLIP_COUNTER[trk]]);
 }
 
 /**
@@ -278,15 +270,14 @@ cmd = new Command(socket).init();
 
 // When we hear a beat, then move the marker
 cmd.addListener('beat', function(e, opts) {
+  opts = opts[0];
   pv.trackView.moveMarker(opts.value);
   
   // On beat 0, send loopbegin event to the fsm
-  if (opts.value == 0) {
-    if (fsm.current == 'wait') {
+  if ((opts.value == 0) && (fsm.current == 'wait')) {
       fsm.loopbegin();
-    } else if (fsm.current == 'record') {
+  } else if ((opts.value == 31) && (fsm.current == 'record')) {
       fsm.loopend();
-    }
   }
 });
 
@@ -309,17 +300,16 @@ var fsm = StateMachine.create({
       // you entered with event "recordready"
       // from practice
       console.log('now in state ' + t);
-      cmd.doClip(State.currentTrack);
+      cmd.newClip(State.currentTrack);
 
       // ----- when I hear beat 0
       // ----- fsm.loopbegin()
     },
     onenterrecord: function(e, f, t) {
       // entered with event "loopbegin"
-      cmd.doClip(State.currentTrack);
+      cmd.storeClip(State.currentTrack);
 
-      State.prevTrack = State.currentTrack;
-      State.currentTrack = getNextInstrument();
+      nextInstrument();
 
       // when I hear beat 0
       // emit loopend (fsm.loopend())
@@ -328,8 +318,8 @@ var fsm = StateMachine.create({
     onenterpractice: function(e, f, t) {
       cmd.muteTrack(State.prevTrack, 1);
       cmd.muteTrack(State.currentTrack, 0);
-      // delete any clips in getInstrumentGroup(newtrk)
-      deleteClipsInGroup();
+      // stop any clips in getInstrumentGroup(newtrk)
+      stopClipsInGroup();
       console.log('now in state ' + t);
     }
   }
