@@ -1,5 +1,3 @@
-WINDOW_WIDTH = $(window).width();
-WINDOW_HEIGHT = $(window).height() - 10;
 BEATS_PER_LOOP = 32;
 
 // Map an OSC event to an app-specific event.
@@ -149,7 +147,7 @@ Command.prototype.doClip = function(trk) {
 }
 
 /**
- * @param trk TrkId
+ * @param trk track id
  * @param mute 1 or 0
  */
 Command.prototype.muteTrack = function(trk, mute) {
@@ -159,21 +157,26 @@ Command.prototype.muteTrack = function(trk, mute) {
 /**
  * Manages playhead objects
  */
-function PlayerView() {
-  this.r = new Raphael('viewport', WINDOW_WIDTH, WINDOW_HEIGHT);
-  this.trackView = new TrackView(this.r);
+function PlayerView(viewportEl) {
+  this.viewport = viewportEl;
+  this.r = new Raphael('viewport', this.viewport.width(), this.viewport.height());
+  this.trackView = new TrackView(this.r, viewportEl);
 }
 PlayerView.prototype.render = function() {
   this.trackView.render();
+  return this;
 }
 
 /**
  * Manages track objects: timeline, marker.
  */
-function TrackView(r) {
+function TrackView(r, viewportEl) {
   this.r = r;
+  this.viewport = viewportEl;
   this.timeline = null;
   this.timeMarker = null;
+
+  this.squares = this.r.set();
 
   return this;
 }
@@ -182,12 +185,20 @@ function TrackView(r) {
  * Draws our track objects
  */
 TrackView.prototype.render = function() {
-  this.timeline = this.r.rect(0, 0, WINDOW_WIDTH*2/3, WINDOW_HEIGHT/2);
-  this.timeline.attr({fill: 'blue'});
-  var tbox = this.timeline.getBBox();
-  // Draw the timeline marker line
-  var timeMarkerPath = "M"+tbox.x+","+tbox.y+"L"+tbox.x+","+(tbox.y+tbox.height);
-  this.timeMarker = this.r.path(timeMarkerPath).attr({stroke: 'red'});
+  // Draw 32 squares in an 8x4 grid.
+  RECT_SPACING = 20;
+  RECT_LENGTH = this.viewport.width() / 10;
+  NUM_COLS = 8;
+  
+  for (var i = 0; i < BEATS_PER_LOOP / NUM_COLS; i++) {
+    var y = i * (RECT_LENGTH + RECT_SPACING);
+    for (var j = 0; j < NUM_COLS; j++) {
+      var x = j * (RECT_LENGTH + RECT_SPACING);
+      var sq = this.r.rect(x, y, RECT_LENGTH, RECT_LENGTH);
+      sq.attr({ fill: 'black' })
+      this.squares.push(sq);      
+    }
+  }
 
   return this;
 }
@@ -196,18 +207,26 @@ TrackView.prototype.render = function() {
  * Push the marker according to the beat.
  * The timeline marker should increment to beat / BEATS_PER_LOOP
  * percent of the timeline width.
+ *
+ * Rendered as a grid of boxes that change color according to their.
  */
 TrackView.prototype.moveMarker = function(beat) {
-  var tlBbox = this.timeline.getBBox();
-  var markBbox = this.timeMarker.getBBox();
-  var markX = markBbox.x;
-  var newX = beat / BEATS_PER_LOOP * tlBbox.width;
-  this.timeMarker.translate(newX - markX);
+  // When resetting the marker, clear the other squares.
+  if (beat == 0) {
+    _.each(this.squares, function(s) {
+      s.attr({fill: 'black'})
+    })
+  }
+  // Draw a fill on the previous squares.
+  for (var i = 0; i <= beat; i++) {
+    this.squares[i].attr({
+      fill: 'yellow'
+    });
+  }
 }
 
 $(window).ready(function() {
-  pv = new PlayerView();
-  pv.render();
+  pv = new PlayerView($('#viewport')).render();
 
   $('#play').click(function(e) {
     e.preventDefault();

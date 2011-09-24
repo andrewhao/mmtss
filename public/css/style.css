@@ -1,3 +1,13 @@
 body {
- background: url(/images/bg_linen.png)
+ background: #444;
+ font-family: 'Geo', 'Helvetica Neue', sans-serif;
+}
+#viewport {
+  width: 1000px;
+  height: 500px;
+  margin: 3em;
+}
+h1 {
+  font-size: 20em;
+  font-weight: bold;
 }
