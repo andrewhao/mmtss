@@ -1,6 +1,6 @@
 WINDOW_WIDTH = $(window).width();
 WINDOW_HEIGHT = $(window).height() - 10;
-BEATS_PER_LOOP = 16;
+BEATS_PER_LOOP = 32;
 
 // Map an OSC event to an app-specific event.
 // {<oscPath>: <event>} map
@@ -8,8 +8,74 @@ EVENT_MAP = {
   '/live/beat': 'beat'
 }
 
+State = {
+  prevTrack: 10,
+  currentTrack: 11
+}
 
-var socket = io.connect('http://localhost:3000');
+SHAKER = [0]
+INST_BASS = [1]
+INST_PADS = [2, 3]
+INST_ARPEGGIATOR = [4, 5]
+INST_CHORAL = [6, 7, 8]
+INST_STRING = [9, 10]
+INST_DRUMS = [11]
+
+INSTRUMENT_TRACKS = {
+  1: {
+    name: "bass"
+  },
+  2: {
+    name: "pad1"
+  },
+  3: {
+    name: "pad2"
+  },
+  4: {
+    name: "arp1"
+  },
+  5: {
+    name: "arp2"
+  },
+  6: {
+    name: "choral1"
+  },
+  7: {
+    name: "choral2"
+  },
+  8: {
+    name: "choral3"
+  },
+  9: {
+    name: "string1"
+  },
+  10: {
+    name: "string2"
+  },
+  11: {
+    name: "drums"
+  }
+}
+
+NUM_INSTRUMENTS = _.keys(INSTRUMENT_TRACKS).length;
+
+function Instrument(trkNum) {
+  this.trackNum = trkNum;
+}
+
+/** STUB */
+function getNextInstrument() {
+  return State.currentTrack - 1;
+}
+
+function getInputTrack(trk) {
+  return trk + NUM_INSTRUMENTS;
+}
+
+/** STUB */
+function deleteClipsInGroup() {
+  return null;
+}
 
 /**
  * Command - Wrapper around socket to send messages.
@@ -25,7 +91,7 @@ Command.prototype.init = function() {
   this.socket.on('osc_response', function(data) {
     var address = data._address;
     var args = data._args;
-    console.log(data);
+    //console.log(data);
     // Emit events based on OSC messages.
     $(document).trigger(EVENT_MAP[address], args);
   });
@@ -76,6 +142,18 @@ Command.prototype.sendBatch = function(batch) {
     console.log('args: ' + batch[i][1]);
     this.send(batch[i][0], batch[i][1]);
   }
+}
+
+Command.prototype.doClip = function(trk) {
+  this.send('/live/play/clipslot', [trk, 1])
+}
+
+/**
+ * @param trk TrkId
+ * @param mute 1 or 0
+ */
+Command.prototype.muteTrack = function(trk, mute) {
+  this.send('/live/mute', [getInputTrack(trk), mute]);
 }
 
 /**
@@ -130,12 +208,6 @@ TrackView.prototype.moveMarker = function(beat) {
 $(window).ready(function() {
   pv = new PlayerView();
   pv.render();
-  cmd = new Command(socket).init();
-
-  cmd.addListener('beat', function(e, opts) {
-    pv.trackView.moveMarker(opts.value);
-    console.log('beat detected with arg: ' + opts.value);
-  });
 
   $('#play').click(function(e) {
     e.preventDefault();
@@ -146,15 +218,71 @@ $(window).ready(function() {
     e.preventDefault();
     cmd.send('/live/stop');
   });
-  
-  $('#test').click(function(e) {
+
+  $('#recordready').click(function(e) {
     e.preventDefault();
-    cmd.sendBatch([
-      ['/live/mute', [0, 1]],
-      ['/live/mute', [1, 1]],
-      ['/live/mute', [2, 0]]
-    ]);
+    fsm.recordready();
   });
 });
 
+var socket = io.connect('http://localhost:3000');
+cmd = new Command(socket).init();
 
+// When we hear a beat, then move the marker
+cmd.addListener('beat', function(e, opts) {
+  pv.trackView.moveMarker(opts.value);
+  
+  // On beat 0, send loopbegin event to the fsm
+  if (opts.value == 0) {
+    if (fsm.current == 'wait') {
+      fsm.loopbegin();
+    } else if (fsm.current == 'record') {
+      fsm.loopend();
+    }
+  }
+});
+
+/*
+ * STATE MACHINE DEFINITION
+ * Keep track of app state and logic.
+ */
+var fsm = StateMachine.create({
+  initial: 'practice',
+  events: [
+    // When the user indicates they want to record a track, they're done practicing.
+    { name: 'recordready', from: 'practice', to: 'wait' },
+    // When the track has begun.
+    { name: 'loopbegin', from: 'wait', to: 'record' },
+    // When the track has finished recording.
+    { name: 'loopend', from: 'record', to: 'practice' }
+  ],
+  callbacks: {
+    onenterwait: function(e, f, t) {
+      // you entered with event "recordready"
+      // from practice
+      console.log('now in state ' + t);
+      cmd.doClip(State.currentTrack);
+
+      // ----- when I hear beat 0
+      // ----- fsm.loopbegin()
+    },
+    onenterrecord: function(e, f, t) {
+      // entered with event "loopbegin"
+      cmd.doClip(State.currentTrack);
+
+      State.prevTrack = State.currentTrack;
+      State.currentTrack = getNextInstrument();
+
+      // when I hear beat 0
+      // emit loopend (fsm.loopend())
+      console.log('now in state ' + t);
+    },
+    onenterpractice: function(e, f, t) {
+      cmd.muteTrack(State.prevTrack, 1);
+      cmd.muteTrack(State.currentTrack, 0);
+      // delete any clips in getInstrumentGroup(newtrk)
+      deleteClipsInGroup();
+      console.log('now in state ' + t);
+    }
+  }
+});
