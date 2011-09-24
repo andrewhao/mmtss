@@ -1,8 +1,10 @@
-form
-  button#play play
-  button#stop stop
-  button#recordready i'm ready to record.
-hr
-#viewport
-h1
-  span mmtss
+#window
+  #viewport
+
+  #controls
+    input#play(type="radio", data-icon="►", name="play-toggle")
+    input#record(type="radio", data-icon="◉", name="record-toggle")
+    input#stop(type="radio", data-icon="◼", name="play-toggle")
+
+  h1
+    span mmtss

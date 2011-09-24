@@ -216,7 +216,15 @@ TrackView.prototype.render = function() {
     for (var j = 0; j < NUM_COLS; j++) {
       var x = j * (RECT_LENGTH + RECT_SPACING);
       var sq = this.r.rect(x, y, RECT_LENGTH, RECT_LENGTH);
-      sq.attr({ fill: 'black' })
+      sq.attr({
+        fill: '90-#121212-#222',
+        stroke: 'none'
+      })
+      // Draw custom lines as borders.
+      this.r.path("M"+x+","+y+"L"+(x+RECT_LENGTH)+","+y).attr({stroke: '#FFF', opacity: 0.5});
+      this.r.path("M"+(x+RECT_LENGTH)+","+y+"L"+(x+RECT_LENGTH)+","+(y+RECT_LENGTH)).attr({stroke: '#333', opacity: 0.5});
+      this.r.path("M"+(x+RECT_LENGTH)+","+(y+RECT_LENGTH)+"L"+x+","+(y+RECT_LENGTH)).attr({stroke: '#333', opacity: 0.5});
+      this.r.path("M"+x+","+(y+RECT_LENGTH)+"L"+x+","+y).attr({stroke: '#FFF', opacity: 0.5});
       this.squares.push(sq);      
     }
   }
@@ -235,7 +243,10 @@ TrackView.prototype.moveMarker = function(beat) {
   // When resetting the marker, clear the other squares.
   if (beat == 0) {
     _.each(this.squares, function(s) {
-      s.attr({fill: 'black'})
+      s.attr({
+        fill: '90-#121212-#222',
+        stroke: 'none'
+      })
     })
   }
   // Draw a fill on the previous squares.
@@ -252,17 +263,16 @@ $(window).ready(function() {
   pv = new PlayerView($('#viewport')).render();
 
   $('#play').click(function(e) {
-    e.preventDefault();
     cmd.send('/live/play');
   });
 
   $('#stop').click(function(e) {
-    e.preventDefault();
     cmd.send('/live/stop');
+    $('#record, #play').attr('checked', false);
   });
 
-  $('#recordready').click(function(e) {
-    e.preventDefault();
+  $('#record').click(function(e) {
+    $('#play').attr('checked', true);
     fsm.recordready();
   });
 });
