@@ -197,7 +197,7 @@ Command.prototype.muteTrack = function(trk, mute) {
  */
 function PlayerView(viewportEl) {
   this.viewport = viewportEl;
-  this.r = new Raphael('viewport', this.viewport.width(), this.viewport.height());
+  this.r = new Raphael('viewport');
   this.trackView = new TrackView(this.r, viewportEl);
 }
 PlayerView.prototype.render = function() {
@@ -224,7 +224,7 @@ function TrackView(r, viewportEl) {
  */
 TrackView.prototype.render = function() {
   // Draw 32 squares in an 8x4 grid.
-  RECT_SPACING = 20;
+  RECT_SPACING = 30;
   RECT_LENGTH = this.viewport.width() / 10;
   NUM_COLS = 8;
   
@@ -266,35 +266,34 @@ TrackView.prototype.moveMarker = function(beat) {
       })
     })
   }
+
+  var sqColor = (fsm.current == "wait") ? ['90-#272a2d-171a1d', '90-#2f3032-#1f2022', 0] : ['90-#F7C90F-#E7B900', '90-#E5A800-#D59800', 1];
+//  var sqColor = (fsm.current == "wait") ? ['90-#272a2d-171a1d', '90-#2f3032-#1f2022', 0] : ['90-#F7C90F-#E7B900', '90-#E5A800-#D59800', 1];
+
   // Draw a fill on the previous squares.
   for (var i = 0; i <= beat; i++) {
     this.squares[i].animate({
-      fill: '#E8D750'
+      fill: sqColor[0],
+      scale: 1,
+      opacity: 1
     }, 50, function() {
-      this.animate({fill: '#BFB24D'}, 150)
+      this.animate({
+        fill: sqColor[1],
+        opacity: sqColor[2],
+        scale: 1
+      }, 200)
     });
   }
 }
 
 $(window).ready(function() {
   pv = new PlayerView($('#viewport')).render();
-
-  $('#play').click(function(e) {
-    cmd.send('/live/play');
-  });
-
-  $('#stop').click(function(e) {
-    cmd.send('/live/stop');
-    $('#record, #play').attr('checked', false);
-  });
-
-
   $('#record').click(function(e) {
+    fsm.recordready();
     $('#play').attr('checked', true);
   });
-
   $('#reset').click(function(e) {
-    e.preventDefault();
+    $('#record, #play').attr('checked', false);
     cmd.send('/live/stop');
     
     // Stop all store tracks
@@ -358,19 +357,14 @@ var fsm = StateMachine.create({
       // from practice
       console.log('now in state ' + t);
       cmd.newClip(State.currentTrack);
-
-      // ----- when I hear beat 0
-      // ----- fsm.loopbegin()
+      $('#record').toggleClass('wait');
     },
     onenterrecord: function(e, f, t) {
       // entered with event "loopbegin"
       cmd.storeClip(State.currentTrack);
-
       nextInstrument();
-
-      // when I hear beat 0
-      // emit loopend (fsm.loopend())
       console.log('now in state ' + t);
+      $('#record').toggleClass('wait');
     },
     onenterpractice: function(e, f, t) {
       cmd.muteTrack(State.prevTrack, 1);
@@ -378,6 +372,9 @@ var fsm = StateMachine.create({
       // stop any clips in getInstrumentGroup(newtrk)
       stopClipsInGroup();
       console.log('now in state ' + t);
+    },
+    onleaverecord: function() {
+      $('#record').attr('checked', false);
     }
   }
 });
