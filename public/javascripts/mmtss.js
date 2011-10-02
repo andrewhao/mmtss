@@ -33,6 +33,30 @@ CLIP_COUNTER = {}
 
 NUM_INSTRUMENTS = _.flatten(_.values(INSTRUMENT_GROUPS)).length;
 
+STATE_UI_TEXT = {
+    'practice': {
+        name: "PRACTICING",
+        desc: "You can now practice with your current instrument as long as you'd like. When you're "
+              + "ready to begin to record your track, press the RECORD button: <input type='radio' id='record2' name='record-toggle' data-icon='◉' />."
+    },
+    'wait': {
+        name: "WAITING TO RECORD",
+        desc: "We need to wait for all the bars of this current track to finish looping. When the "
+              + "bars count all the way down, your track will automatically begin recording. Be ready!"
+    },
+    'record': {
+        name: 'RECORDING',
+        desc: "Rock on! Anything you're playing now will be recorded into the mix. Gosh, you sound good."
+    }
+}
+
+function updateStateText() {
+    if (fsm === undefined) return;
+    var stateInfo = STATE_UI_TEXT[fsm.current];
+    $('#status-text h2.status').html(stateInfo.name);
+    $('#status-text p.description').html(stateInfo.desc);
+};
+
 function getInstrumentInfo() {
   instGroup = getGroup(State.currentTrack);
   return {
@@ -224,7 +248,7 @@ function TrackView(r, viewportEl) {
  */
 TrackView.prototype.render = function() {
   // Draw 32 squares in an 8x4 grid.
-  RECT_SPACING = 30;
+  RECT_SPACING = 25;
   RECT_LENGTH = this.viewport.width() / 10;
   NUM_COLS = 8;
   
@@ -267,33 +291,34 @@ TrackView.prototype.moveMarker = function(beat) {
     })
   }
 
-  var sqColor = (fsm.current == "wait") ? ['90-#272a2d-171a1d', '90-#2f3032-#1f2022', 0] : ['90-#F7C90F-#E7B900', '90-#E5A800-#D59800', 1];
-//  var sqColor = (fsm.current == "wait") ? ['90-#272a2d-171a1d', '90-#2f3032-#1f2022', 0] : ['90-#F7C90F-#E7B900', '90-#E5A800-#D59800', 1];
+// var sqColor = (fsm.current == "wait") ? ['90-#272a2d-#171a1d', '90-#2f3032-#1f2022', 0] : ['90-#F7C90F-#E7B900', '90-#E5A800-#D59800', 1];
+  var sqColor = (fsm.current == "wait") ? ['#272a2d', '#2f3032', 0] : ['#F7C90F', '#E5A800', 1];
 
   // Draw a fill on the previous squares.
   for (var i = 0; i <= beat; i++) {
     this.squares[i].animate({
       fill: sqColor[0],
-      scale: 1,
-      opacity: 1
     }, 50, function() {
       this.animate({
         fill: sqColor[1],
-        opacity: sqColor[2],
-        scale: 1
-      }, 200)
+        'fill-opacity': sqColor[2]
+      }, 200);
     });
   }
-}
+};
 
 $(window).ready(function() {
+  var FUDGE = 30;
+  $('#window').width($(window).width()-FUDGE);
+  $('#window').height($(window).height()-FUDGE);
   pv = new PlayerView($('#viewport')).render();
-  $('#record').click(function(e) {
+  $('input[name=record-toggle]').live('click', function(e) {
     fsm.recordready();
+    $('input[name=record-toggle]').attr('checked', true);
     $('#play').attr('checked', true);
   });
   $('#reset').click(function(e) {
-    $('#record, #play').attr('checked', false);
+    $('input[name=record-toggle], #play').attr('checked', false);
     cmd.send('/live/stop');
     
     // Stop all store tracks
@@ -330,7 +355,7 @@ cmd.addListener('beat', function(e, opts) {
   // On beat 0, send loopbegin event to the fsm
   if ((opts.value == 0) && (fsm.current == 'wait')) {
       fsm.loopbegin();
-  } else if ((opts.value == 31) && (fsm.current == 'record')) {
+  } else if ((opts.value == 0) && (fsm.current == 'record')) {
       fsm.loopend();
   }
 });
@@ -356,18 +381,21 @@ var fsm = StateMachine.create({
       // you entered with event "recordready"
       // from practice
       console.log('now in state ' + t);
+      updateStateText();
       cmd.newClip(State.currentTrack);
-      $('#record').toggleClass('wait');
+      $('#record').toggleClass('wait', true);
     },
     onenterrecord: function(e, f, t) {
       // entered with event "loopbegin"
       cmd.storeClip(State.currentTrack);
+      updateStateText();
       nextInstrument();
       console.log('now in state ' + t);
-      $('#record').toggleClass('wait');
+      $('#record').toggleClass('wait', false);
     },
     onenterpractice: function(e, f, t) {
       cmd.muteTrack(State.prevTrack, 1);
+      updateStateText();
       cmd.muteTrack(State.currentTrack, 0);
       // stop any clips in getInstrumentGroup(newtrk)
       stopClipsInGroup();
@@ -375,6 +403,8 @@ var fsm = StateMachine.create({
     },
     onleaverecord: function() {
       $('#record').attr('checked', false);
+      var info = getInstrumentInfo();
+      $('#current-instrument').text(info.description + " " + info.name);
     }
   }
 });

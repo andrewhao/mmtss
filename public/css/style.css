@@ -41,10 +41,42 @@ body {
    z-index: 1000;
 }
 
-h1#logo {
+#status-text {
   position: absolute;
-  z-index: 2;
-  top: -10px;
+  top: 10em;
+  width: 30em;
+  right: 2em;
+}
+#status-text * {
+   font-size: 2em;
+   color: #000;
+   text-shadow: 1px 1px 1px #333;
+}
+
+#instrument {
+  position: absolute;
+  left: 2em;
+  width: 80em;
+}
+#instrument h2 {
+  color: #000;
+  font-size: 4em;
+  text-shadow: 1px 1px 1px #333;
+  font-size
+}
+
+#instrument #current-instrument {
+  color: #F7C90F;
+  text-shadow: -1px -1px 1px #A73900;
+}
+
+
+#thelogo {
+  position: absolute;
+  bottom: -10em;
+}
+
+h1#logo {
   font-size: 20em;
   font-weight: bold;
   margin: 0;
@@ -63,6 +95,7 @@ h1:after {
   color: #000;
   text-shadow: 1px 1px 1px #000;
 }
+
 
 /**
  * Toggle radios
