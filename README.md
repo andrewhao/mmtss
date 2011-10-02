@@ -5,18 +5,21 @@ Let's make music together! This project simplifies a traditional loop tracking s
 
 The idea: Everybody adds or modifies one "part" of a 32-bar loop. The user gets to play an instrument over the existing mix and record the 32-bar phrase when she or he is ready. Once the person is finished, the project selects another instrument at random for the next viewer to record.
 
-A Ableton Live controller serving a Webkit view, backed by node.js on the backend and
-socket.io on the front. Communication is done via LiveOSC.
+It's an Ableton Live controller serving a Webkit view, backed by node.js on the backend and
+socket.io + RaphaelJS on the front. Communication is done through a LiveOSC Live plugin via sockets.
 
 ### Screenshots
 
 ![Practice mode](http://farm7.static.flickr.com/6169/6188366577_7ba48d38d1_z.jpg)
+
 mmtss in practice/playback mode. Here the user is able to practice/mess around with the current instrument to prepare to record the next track.
 
 ![Cued mode](http://farm7.static.flickr.com/6121/6188886114_9d6d519972_z.jpg)
+
 Pressing "record" puts the user in a wait state. They are prompted to begin recording when all the black boxes count down and disappear.
 
 ![Record mode](http://farm7.static.flickr.com/6177/6188367151_ca5b782735_z.jpg)
+
 mmtss in record mode.
 
 ### Installation
