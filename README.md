@@ -8,6 +8,10 @@ The idea: Everybody adds or modifies one "part" of a 32-bar loop. The user gets 
 It's an Ableton Live controller serving a Webkit view, backed by node.js on the backend and
 socket.io + RaphaelJS on the front. Communication is done through a LiveOSC Live plugin via sockets.
 
+### Video
+
+See it in action: [YouTube](http://www.youtube.com/watch?v=a2c-rCfR5XU)
+
 ### Screenshots
 
 ![Practice mode](http://farm7.static.flickr.com/6169/6188366577_7ba48d38d1_z.jpg)
